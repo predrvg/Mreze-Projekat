@@ -1,5 +1,3 @@
-
-[Serializable]
 class Igrac
 {
     public string ime {get; set;} = "";

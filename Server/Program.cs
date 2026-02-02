@@ -9,6 +9,3 @@ class Program
         Console.WriteLine("Server pokrenut...");
     }
 }
-
-
-

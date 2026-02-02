@@ -1,5 +1,3 @@
-
-[Serializable]
 class Igra
 {
     public string imePrvogIgraca {get; set;} = "";
