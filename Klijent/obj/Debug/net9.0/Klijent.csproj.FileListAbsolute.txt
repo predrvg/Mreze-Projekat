@@ -1,0 +1,15 @@
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/bin/Debug/net9.0/Klijent
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/bin/Debug/net9.0/Klijent.deps.json
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/bin/Debug/net9.0/Klijent.runtimeconfig.json
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/bin/Debug/net9.0/Klijent.dll
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/bin/Debug/net9.0/Klijent.pdb
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.GeneratedMSBuildEditorConfig.editorconfig
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.AssemblyInfoInputs.cache
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.AssemblyInfo.cs
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.csproj.CoreCompileInputs.cache
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.sourcelink.json
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.dll
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/refint/Klijent.dll
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.pdb
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/Klijent.genruntimeconfig.cache
+/Users/predragradovanovic/Desktop/Mreze-Projekat/Klijent/obj/Debug/net9.0/ref/Klijent.dll
