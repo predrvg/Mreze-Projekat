@@ -1,8 +1,21 @@
 class Igrac
 {
-    public string ime {get; set;} = "";
-    public string korisnickoIme {get; set;} = "";
-    public string ipAdresa {get; set;} = "";
-    public int port {get; set;} = 0;
-    public TipIgraca tipPrijave {get; set;}
+    public string Ime {get; set;} = "";
+    public string KorisnickoIme {get; set;} = "";
+    public string IpAdresa {get; set;} = "";
+    public int Port {get; set;} = 0;
+    public TipIgraca TipPrijave {get; set;}
+
+    public Igrac(string ime, string korisnickoIme, string ipAdresa, int port, TipIgraca tipPrijave)
+    {
+        Ime = ime;
+        KorisnickoIme = korisnickoIme;
+        IpAdresa = ipAdresa;
+        Port = port;
+        TipPrijave = tipPrijave;
+    }
+
+    public Igrac()
+    {
+    }
 }
