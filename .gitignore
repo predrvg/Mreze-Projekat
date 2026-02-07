@@ -14,3 +14,6 @@ obj/
 *.exe
 *.pdb
 *.cache
+/.vs/Mreze-Projekat/CopilotIndices/17.14.1530.14912/CodeChunks.db-wal
+/.vs/Mreze-Projekat/CopilotIndices/17.14.1530.14912/SemanticSymbols.db-wal
+/.vs/Mreze-Projekat/DesignTimeBuild/.dtbcache.v2

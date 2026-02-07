@@ -26,7 +26,7 @@ class Program
         server.Bind(serverEP);
         server.Listen(2);
 
-        Console.WriteLine("$Server pokrenut. Čeka prijavu igrača...");
+        Console.WriteLine("$Server pokrenut. Čeka prijavu igrača.");
 
         while (true)
         {
