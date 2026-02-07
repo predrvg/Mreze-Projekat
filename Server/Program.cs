@@ -24,25 +24,23 @@ class Program
         IPEndPoint serverEP = new IPEndPoint(IPAddress.Any, TCP_PORT);
         
         server.Bind(serverEP);
-        server.Listen(2);
+        server.Listen(BROJ_IGRACA);
 
-        Console.WriteLine("$Server pokrenut. Čeka prijavu igrača.");
+        Console.WriteLine("Server pokrenut. Čeka prijavu igrača.\n");
 
         while (true)
         {
             Socket client = server.Accept();
+            Console.WriteLine("Novi klijent se povezao.");
+            Igrac noviIgrac = Serijalizer.Receive<Igrac>(client);
 
-            byte[] buffer = new byte[1024];
-            int bytesRead = client.Receive(buffer);
-
-            Igrac noviIgrac = Serijalizer.Deserialize<Igrac>(buffer[..bytesRead]);
             prijavljeniIgraci.Add(noviIgrac);
             soketiIgraca.Add(client);
 
             Console.WriteLine($"Prijavljen igrač: {noviIgrac.Ime} ({noviIgrac.KorisnickoIme})");
 
-            string potvrda = "Prijava uspesna!";
-            client.Send(Encoding.UTF8.GetBytes(potvrda));
+            string poruka = "Prijava uspešna!";
+            Serijalizer.Send(client, poruka);
 
             if (prijavljeniIgraci.Count == BROJ_IGRACA)
             {
@@ -59,9 +57,17 @@ class Program
         int duzinaReci = izabranaRec.Length;
         int brojDozvoljenihGresaka = 5;
 
-        Console.WriteLine("Igra pocinje!");
+        Console.WriteLine("\n---IGRA POCINJE---");
 
-        string pocetnoStanje = new string('_', duzinaReci);
+        string pocetnoStanje = String.Empty;
+        for (int i = 0; i < duzinaReci; i++)
+        {
+            pocetnoStanje += "_ ";
+        }
+
+        pocetnoStanje = pocetnoStanje.Trim(); 
+        Console.WriteLine($"\nPočetno stanje riječi: {pocetnoStanje}");
+
 
         Igra igra = new Igra(
             prijavljeniIgraci[0].Ime,
@@ -71,27 +77,19 @@ class Program
             brojDozvoljenihGresaka: brojDozvoljenihGresaka
             );
 
-        byte[] data = Serijalizer.Serialize(igra);
-
         for (int i = 0; i < soketiIgraca.Count; i++)
         {
-            Socket s = soketiIgraca[i];
             try
             {
-                s.Send(data);
+                Serijalizer.Send(soketiIgraca[i], igra);
+                Console.WriteLine($"\nStartni parametri poslati igraču {prijavljeniIgraci[i].KorisnickoIme}");
             }
             catch
             {
-                Console.WriteLine($"Ne mogu da pošaljem startne parametre igraču {prijavljeniIgraci[i].KorisnickoIme}");
-            }
-            finally
-            {
-                s.Close();
+                Console.WriteLine($"\nNe mogu da pošaljem startne parametre igraču {prijavljeniIgraci[i].KorisnickoIme}");
             }
         }
 
-        prijavljeniIgraci.Clear();
-        soketiIgraca.Clear();
     }
 
 }

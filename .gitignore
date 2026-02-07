@@ -1,19 +1,28 @@
-# .NET build folders
-bin/
-obj/
 
-# Visual Studio
+[Bb]in/
+[Oo]bj/
+
+
 .vs/
-
-# User-specific files
 *.user
+*.userosscache
+*.sln.doccache
 *.suo
+*.db
+*.db-shm
+*.db-wal
+*.json
 
-# Build outputs
-*.dll
-*.exe
-*.pdb
+# Specijalni VS fajlovi
+DocumentLayout.json
+*.v2
 *.cache
-/.vs/Mreze-Projekat/CopilotIndices/17.14.1530.14912/CodeChunks.db-wal
-/.vs/Mreze-Projekat/CopilotIndices/17.14.1530.14912/SemanticSymbols.db-wal
-/.vs/Mreze-Projekat/DesignTimeBuild/.dtbcache.v2
+
+
+.vscode/
+
+*.log
+
+*.suo
+*.user
+*.userosscache
