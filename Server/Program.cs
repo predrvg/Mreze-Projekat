@@ -10,7 +10,11 @@ using System.Text;
 class Program
 {
     const int TCP_PORT = 5000;
+    const int UDP_PORT = 7000;
     const int BROJ_IGRACA = 2;
+
+    static Socket udpServer = null!;
+    static EndPoint udpClientEP = new IPEndPoint(IPAddress.Any, 0);
 
     static List<Igrac> prijavljeniIgraci = new List<Igrac>();
     static List<Socket> soketiIgraca = new List<Socket>();
@@ -52,6 +56,11 @@ class Program
 
     static void PokreniIgru()
     {
+        udpServer = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        IPEndPoint serverEP = new IPEndPoint(IPAddress.Any, UDP_PORT);
+        udpServer.Bind(serverEP);
+        Console.WriteLine($"\nUDP server pokrenut na portu {UDP_PORT}");
+
         Random rnd = new Random();
         string izabranaRec = reci[rnd.Next(reci.Count)];
         int duzinaReci = izabranaRec.Length;
@@ -90,6 +99,42 @@ class Program
             }
         }
 
+        ObradiPoteze(izabranaRec);
+
     }
 
+    static void ObradiPoteze(string tajnaRec)
+    {
+        byte[] buffer = new byte[1024];
+
+        while (true)
+        {
+            int primljeno = udpServer.ReceiveFrom(buffer, ref udpClientEP);
+            
+            byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
+            string pokusaj = Serijalizer.Deserialize<string>(tacniPodaci);
+
+            if(pokusaj.Length == 1)
+            {
+                Console.WriteLine($"Primljeno slovo: {pokusaj}");
+
+                if (tajnaRec.Contains(pokusaj))
+                    Console.WriteLine("Slovo postoji u reci");
+                else
+                    Console.WriteLine("Pogresno slovo");
+            }
+            else if(pokusaj.Length > 1)
+            {
+                Console.WriteLine($"Primljena rec: {pokusaj}");
+
+                if(pokusaj == tajnaRec)
+                {
+                    Console.WriteLine("Rec pogodjena!");
+                    break;
+                }
+                else
+                    Console.WriteLine("Pogresna rec");
+            }
+        }
+    }
 }

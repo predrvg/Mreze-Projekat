@@ -5,6 +5,7 @@ using System.Net.Sockets;
 class Program
 {
     const int TCP_PORT = 5000;
+    const int UDP_PORT = 7000;
     static void Main(string[] args)
     {
         Console.WriteLine("---PRIJAVA IGRACA---\n");
@@ -45,7 +46,7 @@ class Program
             Ime = ime,
             KorisnickoIme = korisnickoIme,
             IpAdresa = "127.0.0.1", 
-            Port = 7000,
+            Port = UDP_PORT,
             TipPrijave = tipPrijave
         };
 
@@ -64,6 +65,10 @@ class Program
         Igra igra = Serijalizer.Receive<Igra>(soket);
         Console.WriteLine($"\nPočetak igre: {igra.ImePrvogIgraca} vs {igra.ImeDrugogIgraca}");
         Console.WriteLine($"\nDužina reči: {igra.DuzinaReci}, Dozvoljene greške: {igra.BrojDozvoljenihGresaka}, UDP port servera: {igrac.Port}");
+
+        //UDP soket
+        Socket udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        EndPoint serverEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
 
         Console.WriteLine("\nPritisnite ENTER za izlaz...");
         Console.ReadLine();
