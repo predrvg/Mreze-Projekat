@@ -9,10 +9,10 @@ class Program
     static void Main(string[] args)
     {
         Console.WriteLine("---PRIJAVA IGRACA---\n");
-        Console.Write("Unesite svoje ime:");
+        Console.Write("Unesite svoje ime: ");
         string ime = Console.ReadLine() ?? "";
 
-        Console.Write("Unesite korisnicko ime:");
+        Console.Write("Unesite korisnicko ime: ");
         string korisnickoIme = Console.ReadLine() ?? "";
 
         TipIgraca tipPrijave;
@@ -41,36 +41,65 @@ class Program
             }
         }
 
+        //TCP 
+        Socket tcpKlijent = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+        tcpKlijent.Connect(IPAddress.Loopback, TCP_PORT);
+        Console.WriteLine("\nPovezano sa serverom.");
+
+        //UDP 
+        Socket udpKlijent = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        udpKlijent.Bind(new IPEndPoint(IPAddress.Any, 0));
+        EndPoint klijentEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
+
         Igrac igrac = new Igrac
         {
             Ime = ime,
             KorisnickoIme = korisnickoIme,
-            IpAdresa = "127.0.0.1", 
-            Port = UDP_PORT,
+            IpAdresa = "127.0.0.1",
+            Port = ((IPEndPoint)udpKlijent.LocalEndPoint!).Port,
             TipPrijave = tipPrijave
         };
 
-        //TCP soket
-        Socket soket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-        soket.Connect(IPAddress.Loopback, TCP_PORT);
-        Console.WriteLine("\nPovezano sa serverom.");
-
-        Serijalizer.Send(soket, igrac);
+        Serijalizer.Send(tcpKlijent, igrac);
         Console.WriteLine("\nPodaci poslati serveru.");
 
-        string potvrda = Serijalizer.Receive<string>(soket);
+        string potvrda = Serijalizer.Receive<string>(tcpKlijent);
         Console.WriteLine($"\nServer: {potvrda}");
 
-        Igra igra = Serijalizer.Receive<Igra>(soket);
+        string stanje = Serijalizer.Receive<string>(tcpKlijent);
+        Console.WriteLine("Početno stanje reči: " + stanje);
+
+
+        Igra igra = Serijalizer.Receive<Igra>(tcpKlijent);
         Console.WriteLine($"\nPočetak igre: {igra.ImePrvogIgraca} vs {igra.ImeDrugogIgraca}");
         Console.WriteLine($"\nDužina reči: {igra.DuzinaReci}, Dozvoljene greške: {igra.BrojDozvoljenihGresaka}, UDP port servera: {igrac.Port}");
 
-        //UDP soket
-        Socket udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        EndPoint serverEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
+        byte[] buffer = new byte[1024];
 
-        Console.WriteLine("\nPritisnite ENTER za izlaz...");
-        Console.ReadLine();
+        while (true)
+        {
+            if (Console.KeyAvailable)
+            {
+                Console.WriteLine("Unesite slovo ili rijec: ");
+                string unos = Console.ReadLine() ?? "";
+
+                byte[] data = Serijalizer.Serialize(unos);
+                udpKlijent.SendTo(data, klijentEP);
+            }
+
+            if (udpKlijent.Available > 0)
+            {
+                EndPoint serverEPtemp = new IPEndPoint(IPAddress.Any, 0);
+                int primljeno = udpKlijent.ReceiveFrom(buffer, ref serverEPtemp);
+                byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
+                string novoStanje = Serijalizer.Deserialize<string>(tacniPodaci);
+
+                Console.WriteLine("\n---NOVO STANJE---");
+                Console.WriteLine(novoStanje);
+            }
+        }
+
     }
 }

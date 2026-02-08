@@ -14,27 +14,26 @@ class Program
     const int BROJ_IGRACA = 2;
 
     static Socket udpServer = null!;
-    static EndPoint udpClientEP = new IPEndPoint(IPAddress.Any, 0);
 
     static List<Igrac> prijavljeniIgraci = new List<Igrac>();
     static List<Socket> soketiIgraca = new List<Socket>();
 
-    static List<string> reci = new List<string> {"avion", "harmonika", "radiolog", "programiranje"};
+    static List<string> reci = new List<string> { "avion", "harmonika", "radiolog", "programiranje" };
     static void Main(string[] args)
     {
         //TCP soket
-        Socket server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-       
+        Socket tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
         IPEndPoint serverEP = new IPEndPoint(IPAddress.Any, TCP_PORT);
-        
-        server.Bind(serverEP);
-        server.Listen(BROJ_IGRACA);
+
+        tcpServer.Bind(serverEP);
+        tcpServer.Listen(BROJ_IGRACA);
 
         Console.WriteLine("Server pokrenut. Čeka prijavu igrača.\n");
 
         while (true)
         {
-            Socket client = server.Accept();
+            Socket client = tcpServer.Accept();
             Console.WriteLine("Novi klijent se povezao.");
             Igrac noviIgrac = Serijalizer.Receive<Igrac>(client);
 
@@ -59,14 +58,14 @@ class Program
         udpServer = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         IPEndPoint serverEP = new IPEndPoint(IPAddress.Any, UDP_PORT);
         udpServer.Bind(serverEP);
-        Console.WriteLine($"\nUDP server pokrenut na portu {UDP_PORT}");
+        Console.WriteLine($"\nUDP tcpServer pokrenut na portu {UDP_PORT}");
 
         Random rnd = new Random();
         string izabranaRec = reci[rnd.Next(reci.Count)];
         int duzinaReci = izabranaRec.Length;
         int brojDozvoljenihGresaka = 5;
 
-        Console.WriteLine("\n---IGRA POCINJE---");
+        Console.WriteLine("\nIgra je pocela.");
 
         string pocetnoStanje = String.Empty;
         for (int i = 0; i < duzinaReci; i++)
@@ -74,8 +73,7 @@ class Program
             pocetnoStanje += "_ ";
         }
 
-        pocetnoStanje = pocetnoStanje.Trim(); 
-        Console.WriteLine($"\nPočetno stanje riječi: {pocetnoStanje}");
+        pocetnoStanje = pocetnoStanje.Trim();
 
 
         Igra igra = new Igra(
@@ -90,6 +88,7 @@ class Program
         {
             try
             {
+                Serijalizer.Send(soketiIgraca[i], pocetnoStanje);
                 Serijalizer.Send(soketiIgraca[i], igra);
                 Console.WriteLine($"\nStartni parametri poslati igraču {prijavljeniIgraci[i].KorisnickoIme}");
             }
@@ -99,42 +98,120 @@ class Program
             }
         }
 
-        ObradiPoteze(izabranaRec);
+        ObradiPoteze(izabranaRec, brojDozvoljenihGresaka);
 
     }
 
-    static void ObradiPoteze(string tajnaRec)
+    static void ObradiPoteze(string tajnaRec, int brojGresaka)
     {
+        EndPoint udpKlijentEP = new IPEndPoint(IPAddress.Any, 0);
+
+        char[] maskiranaRec = new char[tajnaRec.Length];
+        for (int i = 0; i < maskiranaRec.Length; i++)
+            maskiranaRec[i] = '_';
+
+        Dictionary<string, int> greske = new Dictionary<string, int>();
+        Dictionary<string, HashSet<char>> pokusanaSlovaPoIgracu = new Dictionary<string, HashSet<char>>();
+
+        foreach (Igrac igrac in prijavljeniIgraci)
+            pokusanaSlovaPoIgracu[igrac.KorisnickoIme] = new HashSet<char>();
+        
+        foreach (Igrac igrac in prijavljeniIgraci)
+            greske[igrac.KorisnickoIme] = brojGresaka;
+
         byte[] buffer = new byte[1024];
 
         while (true)
         {
-            int primljeno = udpServer.ReceiveFrom(buffer, ref udpClientEP);
-            
+
+            int primljeno = udpServer.ReceiveFrom(buffer, ref udpKlijentEP);
+
             byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
             string pokusaj = Serijalizer.Deserialize<string>(tacniPodaci);
 
-            if(pokusaj.Length == 1)
+            if (pokusaj.Length == 1)
             {
-                Console.WriteLine($"Primljeno slovo: {pokusaj}");
+                Igrac igrac = NadjiIgracaPoEP(udpKlijentEP);
+                char slovo = pokusaj[0];
 
-                if (tajnaRec.Contains(pokusaj))
-                    Console.WriteLine("Slovo postoji u reci");
-                else
-                    Console.WriteLine("Pogresno slovo");
-            }
-            else if(pokusaj.Length > 1)
-            {
-                Console.WriteLine($"Primljena rec: {pokusaj}");
-
-                if(pokusaj == tajnaRec)
+                if (pokusanaSlovaPoIgracu[igrac.KorisnickoIme].Contains(slovo))
                 {
-                    Console.WriteLine("Rec pogodjena!");
-                    break;
+                    Console.WriteLine($"{igrac.KorisnickoIme} je već pokušao slovo '{slovo}'");
                 }
                 else
-                    Console.WriteLine("Pogresna rec");
+                {
+                    pokusanaSlovaPoIgracu[igrac.KorisnickoIme].Add(slovo);
+                    bool pogodak = false;
+
+                    for(int i = 0; i < tajnaRec.Length; i++)
+                    {
+                        if (tajnaRec[i] == slovo)
+                        {
+                            maskiranaRec[i] = slovo;
+                            pogodak = true;
+                        }
+                    }
+
+                    if(!pogodak)
+                    {
+                        string korisnik = igrac.KorisnickoIme;
+                        greske[korisnik]--;
+                        Console.WriteLine($"{igrac.KorisnickoIme} je promašio slovo '{slovo}'");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{igrac.KorisnickoIme} je pogodio slovo '{slovo}'");
+                    }
+                }
+
+                Console.WriteLine("Pokušana slova po igračima:");
+                foreach (var entry in pokusanaSlovaPoIgracu)
+                {
+                    Console.WriteLine($"{entry.Key}: {string.Join(", ", entry.Value)}");
+                }
             }
+            else
+            {
+                if(pokusaj.Length != tajnaRec.Length)
+                {
+                    Console.WriteLine("Pogresna duzina reci.");
+                }
+                else if(pokusaj == tajnaRec)
+                {
+                    maskiranaRec = tajnaRec.ToCharArray();
+                    Console.WriteLine("Rec je pogodjena.");
+                }
+                else
+                {
+                    Igrac igrac = NadjiIgracaPoEP(udpKlijentEP);
+
+                    string korisnik = igrac.KorisnickoIme;
+                    greske[korisnik]--;
+                }
+            }
+
+            foreach (Igrac i in prijavljeniIgraci)
+            {
+                string stanjeZaIgraca = new string(maskiranaRec) + $" | Preostale greske: {greske[i.KorisnickoIme]}";
+                byte[] odgovor = Serijalizer.Serialize(stanjeZaIgraca);
+                EndPoint ep = new IPEndPoint(IPAddress.Parse(i.IpAdresa), i.Port);
+                udpServer.SendTo(odgovor, ep);
+            }
+        }
+
+        static Igrac NadjiIgracaPoEP(EndPoint ep)
+        {
+            IPEndPoint ip = (IPEndPoint)ep;
+
+            foreach(Igrac igrac in prijavljeniIgraci)
+            {
+                if (igrac.Port == ip.Port && igrac.IpAdresa == ip.Address.ToString())
+                {
+                    return igrac;
+                }
+            }
+
+            return new Igrac();
         }
     }
 }
