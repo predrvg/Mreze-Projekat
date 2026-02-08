@@ -78,28 +78,7 @@ class Program
 
         byte[] buffer = new byte[1024];
 
-        /*while (true)
-        {
-            if (Console.KeyAvailable)
-            {
-                Console.WriteLine("Unesite slovo ili rijec: ");
-                string unos = Console.ReadLine() ?? "";
-
-                byte[] data = Serijalizer.Serialize(unos);
-                udpKlijent.SendTo(data, klijentEP);
-            }
-
-            if (udpKlijent.Available > 0)
-            {
-                EndPoint serverEPtemp = new IPEndPoint(IPAddress.Any, 0);
-                int primljeno = udpKlijent.ReceiveFrom(buffer, ref serverEPtemp);
-                byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
-                string novoStanje = Serijalizer.Deserialize<string>(tacniPodaci);
-
-                Console.WriteLine("\n---NOVO STANJE---");
-                Console.WriteLine(novoStanje);
-            }
-        }*/
+        Console.WriteLine("\n--- Igra počinje ---");
 
         while (true)
         {
@@ -121,6 +100,17 @@ class Program
 
             Console.WriteLine("\n--- STANJE IGRE ---");
             Console.WriteLine(novoStanje);
+            }
+
+            if(tcpKlijent.Poll(1000, SelectMode.SelectRead))
+            {
+                if(tcpKlijent.Available > 0)
+                {
+                    int bytesRead = tcpKlijent.Receive(buffer);
+                    byte[] primljeniPodaci = buffer.Take(bytesRead).ToArray();  
+                    string poruka = Serijalizer.Deserialize<string>(primljeniPodaci);
+                    Console.WriteLine("\n[Server TCP]: " + poruka);
+                }
             }
         }
     }
