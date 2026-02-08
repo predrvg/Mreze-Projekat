@@ -9,8 +9,9 @@ using System.Text;
 
 class Program
 {
-    const int TCP_PORT = 5000;
-    const int UDP_PORT = 7000;
+
+    const int TCP_PORT = 21005;
+    const int UDP_PORT = 21106;
     const int BROJ_IGRACA = 2;
 
     static Socket udpServer = null!;
@@ -75,13 +76,15 @@ class Program
 
         pocetnoStanje = pocetnoStanje.Trim();
 
+        HashSet<char> pogresnaSlova = new HashSet<char>();
 
         Igra igra = new Igra(
             prijavljeniIgraci[0].Ime,
             prijavljeniIgraci[1].Ime,
             trajanje: 300,
             duzinaReci: duzinaReci,
-            brojDozvoljenihGresaka: brojDozvoljenihGresaka
+            brojDozvoljenihGresaka: brojDozvoljenihGresaka,
+            pogresnaSlova: pogresnaSlova
             );
 
         for (int i = 0; i < soketiIgraca.Count; i++)
@@ -98,11 +101,11 @@ class Program
             }
         }
 
-        ObradiPoteze(izabranaRec, brojDozvoljenihGresaka);
+        ObradiPoteze(izabranaRec, brojDozvoljenihGresaka, igra);
 
     }
 
-    static void ObradiPoteze(string tajnaRec, int brojGresaka)
+    static void ObradiPoteze(string tajnaRec, int brojGresaka, Igra igra)
     {
         EndPoint udpKlijentEP = new IPEndPoint(IPAddress.Any, 0);
 
@@ -110,12 +113,10 @@ class Program
         for (int i = 0; i < maskiranaRec.Length; i++)
             maskiranaRec[i] = '_';
 
-        Dictionary<string, int> greske = new Dictionary<string, int>();
-        Dictionary<string, HashSet<char>> pokusanaSlovaPoIgracu = new Dictionary<string, HashSet<char>>();
+        tajnaRec = tajnaRec.ToLower();
 
-        foreach (Igrac igrac in prijavljeniIgraci)
-            pokusanaSlovaPoIgracu[igrac.KorisnickoIme] = new HashSet<char>();
-        
+        Dictionary<string, int> greske = new Dictionary<string, int>();
+
         foreach (Igrac igrac in prijavljeniIgraci)
             greske[igrac.KorisnickoIme] = brojGresaka;
 
@@ -132,15 +133,14 @@ class Program
             if (pokusaj.Length == 1)
             {
                 Igrac igrac = NadjiIgracaPoEP(udpKlijentEP);
-                char slovo = pokusaj[0];
+                char slovo = char.ToLower(pokusaj[0]);
 
-                if (pokusanaSlovaPoIgracu[igrac.KorisnickoIme].Contains(slovo))
+                if (igra.PogresnaSlova.Contains(slovo))
                 {
-                    Console.WriteLine($"{igrac.KorisnickoIme} je već pokušao slovo '{slovo}'");
+                    Console.WriteLine($"Slovo '{slovo}' je već pokušano.");
                 }
                 else
                 {
-                    pokusanaSlovaPoIgracu[igrac.KorisnickoIme].Add(slovo);
                     bool pogodak = false;
 
                     for(int i = 0; i < tajnaRec.Length; i++)
@@ -154,6 +154,7 @@ class Program
 
                     if(!pogodak)
                     {
+                        igra.PogresnaSlova.Add(slovo);
                         string korisnik = igrac.KorisnickoIme;
                         greske[korisnik]--;
                         Console.WriteLine($"{igrac.KorisnickoIme} je promašio slovo '{slovo}'");
@@ -161,14 +162,10 @@ class Program
                     else
                     {
                         Console.WriteLine($"{igrac.KorisnickoIme} je pogodio slovo '{slovo}'");
+                        igra.PogresnaSlova.Add(slovo);
                     }
                 }
 
-                Console.WriteLine("Pokušana slova po igračima:");
-                foreach (var entry in pokusanaSlovaPoIgracu)
-                {
-                    Console.WriteLine($"{entry.Key}: {string.Join(", ", entry.Value)}");
-                }
             }
             else
             {
@@ -190,13 +187,25 @@ class Program
                 }
             }
 
-            foreach (Igrac i in prijavljeniIgraci)
+            /*foreach (Igrac i in prijavljeniIgraci)
             {
                 string stanjeZaIgraca = new string(maskiranaRec) + $" | Preostale greske: {greske[i.KorisnickoIme]}";
                 byte[] odgovor = Serijalizer.Serialize(stanjeZaIgraca);
                 EndPoint ep = new IPEndPoint(IPAddress.Parse(i.IpAdresa), i.Port);
                 udpServer.SendTo(odgovor, ep);
+            }*/
+
+            foreach (Igrac i in prijavljeniIgraci)
+            {
+                string stanjeZaIgraca = new string(maskiranaRec)
+                    + $" | Pokušana slova: {string.Join(", ", igra.PogresnaSlova)}"
+                    + $" | Preostale greške: {greske[i.KorisnickoIme]}";
+
+                byte[] odgovor = Serijalizer.Serialize(stanjeZaIgraca);
+                EndPoint ep = new IPEndPoint(IPAddress.Parse(i.IpAdresa), i.Port);
+                udpServer.SendTo(odgovor, ep);
             }
+
         }
 
         static Igrac NadjiIgracaPoEP(EndPoint ep)

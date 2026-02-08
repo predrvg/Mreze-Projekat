@@ -4,8 +4,8 @@ using System.Net.Sockets;
 
 class Program
 {
-    const int TCP_PORT = 5000;
-    const int UDP_PORT = 7000;
+    const int TCP_PORT = 21005;
+    const int UDP_PORT = 21106;
     static void Main(string[] args)
     {
         Console.WriteLine("---PRIJAVA IGRACA---\n");
@@ -78,7 +78,7 @@ class Program
 
         byte[] buffer = new byte[1024];
 
-        while (true)
+        /*while (true)
         {
             if (Console.KeyAvailable)
             {
@@ -99,7 +99,29 @@ class Program
                 Console.WriteLine("\n---NOVO STANJE---");
                 Console.WriteLine(novoStanje);
             }
-        }
+        }*/
 
+        while (true)
+        {
+            if(igrac.TipPrijave == TipIgraca.Igrac && Console.KeyAvailable)
+            {
+                Console.Write("\nUnesite slovo ili riječ: ");
+                string unos = Console.ReadLine() ?? "";
+                byte[] data = Serijalizer.Serialize(unos);
+                udpKlijent.SendTo(data, klijentEP);
+            }
+
+            if (udpKlijent.Available > 0)
+            {
+            EndPoint serverEPtemp = new IPEndPoint(IPAddress.Any, 0);
+            int primljeno = udpKlijent.ReceiveFrom(buffer, ref serverEPtemp);
+
+            byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
+            string novoStanje = Serijalizer.Deserialize<string>(tacniPodaci);
+
+            Console.WriteLine("\n--- STANJE IGRE ---");
+            Console.WriteLine(novoStanje);
+            }
+        }
     }
 }
