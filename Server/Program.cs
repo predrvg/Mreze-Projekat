@@ -378,7 +378,7 @@ class Program
                 if (greske[igracPoteza] <= 0)
                 {
                    
-                    byte[] info = Serijalizer.Serialize("Vi ste svoje greške ispucali. Čekamo ostale...");
+                    byte[] info = Serijalizer.Serialize("Potrošili ste sve pokušaje. Čekamo ostale...");
                     udpServer.SendTo(info, new IPEndPoint(IPAddress.Parse(igracPoteza.IpAdresa), igracPoteza.Port));
 
                    
@@ -435,7 +435,8 @@ class Program
                 {
                     if (pokusaj.Length != tajnaRec.Length)
                     {
-                        Console.WriteLine("Pogresna duzina reci.");
+                        byte[] greskaMsg = Serijalizer.Serialize("Pogresna duzina reci. Rec ima " + tajnaRec.Length + " slova.");
+                        udpServer.SendTo(greskaMsg, udpKlijentEP);
                         continue;
                     }
                     else if (string.Equals(pokusaj.Trim(), tajnaRec, StringComparison.OrdinalIgnoreCase))
