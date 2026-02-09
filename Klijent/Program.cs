@@ -64,8 +64,8 @@ class Program
         Serijalizer.Send(tcpKlijent, igrac);
         Console.WriteLine("\nPodaci poslati serveru.");
 
-        string? potvrda;
-        while (!Serijalizer.TryReceive<string>(tcpKlijent, out potvrda))
+        string? potvrda = null!;
+        while (tcpKlijent.Connected && !Serijalizer.TryReceive<string>(tcpKlijent, out potvrda))
         {
             Thread.Sleep(50);
         }
@@ -74,6 +74,7 @@ class Program
         if (igrac.TipPrijave == TipIgraca.Posmatrac)
         {
             Console.WriteLine("\n--- POSMATRANJE IGRE ---");
+            Console.WriteLine("Komande: Unesite redni broj igrača da bi mu dodijelili bod.");
 
             while (true)
             {
@@ -81,18 +82,33 @@ class Program
                 {
                     if (Serijalizer.TryReceive<string>(tcpKlijent, out string? stanjeIgre))
                     {
-                        Console.WriteLine("[IGRA]: " + stanjeIgre);
+                        Console.WriteLine("\n[SERVER]: " + stanjeIgre);
 
                         if (stanjeIgre != null && stanjeIgre.Contains("===== KRAJ IGRE ====="))
                         {
-                            Console.WriteLine("\nIgra je završena. Pritisni ENTER za izlaz.");
+                            Console.WriteLine("\nIgra završena. Enter za kraj.");
                             Console.ReadLine();
+
+                            tcpKlijent.Shutdown(SocketShutdown.Both);
+                            tcpKlijent.Close();
+                            udpKlijent.Close();
                             return;
                         }
                     }
                 }
 
-                Thread.Sleep(50);
+               
+                if (Console.KeyAvailable)
+                {
+                    string? unos = Console.ReadLine();
+                    if (!string.IsNullOrEmpty(unos))
+                    {
+                        // Šaljemo običan string preko TCP-a
+                        Serijalizer.Send(tcpKlijent, unos);
+                    }
+                }
+
+                Thread.Sleep(50); // Da ne opterećujemo procesor
             }
         }
 
@@ -139,18 +155,36 @@ class Program
 
             if (tcpKlijent.Available > 0)
             {
-                while (tcpKlijent.Available > 0)
-                {
                     if (Serijalizer.TryReceive<string>(tcpKlijent, out string? poruka))
                     {
-                        Console.WriteLine(poruka);
-                        Console.WriteLine("\nIgra je završena. Pritisni ENTER za izlaz.");
-                        Console.ReadLine();
-                        return;
+                        Console.WriteLine("\n" + poruka);
+
+                        
+                        if (poruka != null && poruka.Contains("===== KRAJ IGRE ====="))
+                        {
+                            Console.WriteLine("\nPritisni ENTER za izlaz.");
+                            Console.ReadLine();
+
+                            try
+                            {
+                                if (tcpKlijent.Connected) tcpKlijent.Shutdown(SocketShutdown.Both);
+                            }
+                            catch { }
+
+                            tcpKlijent.Close();
+                            udpKlijent.Close();
+                            return; 
+                        }
+                        else
+                        {
+                            
+                            Console.Write("Vaš potez: ");
+                        }
                     }
-                    else break;
                 }
-            }
+            
+            
+            
 
             if (igrac.TipPrijave == TipIgraca.Igrac && Console.KeyAvailable)
             {
@@ -164,18 +198,8 @@ class Program
 
             Thread.Sleep(10);
         }
-    }
 
-    static string GetLocalIPAddress()
-    {
-        var host = Dns.GetHostEntry(Dns.GetHostName());
-        foreach (var ip in host.AddressList)
-        {
-            if (ip.AddressFamily == AddressFamily.InterNetwork)
-            {
-                return ip.ToString();
-            }
-        }
-        return "127.0.0.1";
+       
+      
     }
 }

@@ -24,51 +24,41 @@ static class Serijalizer
         soket.Send(data);
     }
 
-    /* public static T Receive<T>(Socket soket)
-     {
-         byte[] lenBytes = new byte[4];
-         soket.Receive(lenBytes);
-         int length = BitConverter.ToInt32(lenBytes, 0);
-
-         byte[] data = new byte[length];
-         int total = 0;
-         while (total < length)
-         {
-             int received = soket.Receive(data, total, length - total, SocketFlags.None);
-             total += received;
-         }
-
-         return Deserialize<T>(data);  
-     }
-    */
 
     public static bool TryReceive<T>(Socket soket, out T? obj)
     {
         obj = default;
-
-        if (soket.Available < 4)
-            return false; 
-
-        byte[] lenBytes = new byte[4];
-        int readLen = soket.Receive(lenBytes, 0, 4, SocketFlags.None);
-        if (readLen < 4)
-            return false; 
-
-        int length = BitConverter.ToInt32(lenBytes, 0);
-
-        if (soket.Available < length)
-            return false; 
-
-        byte[] data = new byte[length];
-        int total = 0;
-        while (total < length)
+        try
         {
-            int received = soket.Receive(data, total, length - total, SocketFlags.None);
-            total += received;
-        }
+            if (soket.Available < 4) return false;
 
-        obj = Deserialize<T>(data)!;
-        return true;
+            byte[] duzinaBuffer = new byte[4];
+            int primljeno = soket.Receive(duzinaBuffer);
+
+            if (primljeno < 4) return false;
+
+            int duzina = BitConverter.ToInt32(duzinaBuffer, 0);
+
+            if (duzina <= 0 || duzina > 10 * 1024 * 1024)
+            {
+                return false;
+            }
+
+            if (soket.Available < duzina)
+            {
+
+                return false;
+            }
+
+            byte[] data = new byte[duzina];
+            soket.Receive(data);
+            obj = Deserialize<T>(data);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
 }
