@@ -50,7 +50,7 @@ class Program
         //UDP 
         Socket udpKlijent = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         udpKlijent.Bind(new IPEndPoint(IPAddress.Any, 0));
-        EndPoint klijentEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
+        EndPoint serverEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
 
         Igrac igrac = new Igrac
         {
@@ -65,53 +65,86 @@ class Program
         Serijalizer.Send(tcpKlijent, igrac);
         Console.WriteLine("\nPodaci poslati serveru.");
 
-        string potvrda = Serijalizer.Receive<string>(tcpKlijent);
+        string? potvrda;
+        while (!Serijalizer.TryReceive<string>(tcpKlijent, out potvrda))
+        {
+            Thread.Sleep(50);
+        }
         Console.WriteLine($"\nServer: {potvrda}");
 
-        string stanje = Serijalizer.Receive<string>(tcpKlijent);
+        Thread.Sleep(100);
+        string? stanje;
+        while (!Serijalizer.TryReceive<string>(tcpKlijent, out stanje))
+        {
+            Thread.Sleep(50);
+        }
         Console.WriteLine("Početno stanje reči: " + stanje);
 
-
-        Igra igra = Serijalizer.Receive<Igra>(tcpKlijent);
+        Thread.Sleep(100);
+        Igra igra; 
+        while (true)
+        {
+            if (Serijalizer.TryReceive<Igra>(tcpKlijent, out Igra? temp))
+            {
+                if (temp!=null)
+                {
+                    igra = temp;
+                    break;
+                }
+            }
+            Thread.Sleep(50);
+        }
         Console.WriteLine($"\nPočetak igre: {igra.ImePrvogIgraca} vs {igra.ImeDrugogIgraca}");
-        Console.WriteLine($"\nDužina reči: {igra.DuzinaReci}, Dozvoljene greške: {igra.BrojDozvoljenihGresaka}, UDP port servera: {igrac.Port}");
+        Console.WriteLine($"\nDužina reči: {igra.DuzinaReci}, Dozvoljene greške: {igra.BrojDozvoljenihGresaka}, UDP port klijenta: {igrac.Port}");
 
         byte[] buffer = new byte[1024];
 
-        Console.WriteLine("\n--- Igra počinje ---");
-
         while (true)
         {
-            if(igrac.TipPrijave == TipIgraca.Igrac && Console.KeyAvailable)
-            {
-                Console.Write("\nUnesite slovo ili riječ: ");
-                string unos = Console.ReadLine() ?? "";
-                byte[] data = Serijalizer.Serialize(unos);
-                udpKlijent.SendTo(data, klijentEP);
-            }
-
             if (udpKlijent.Available > 0)
             {
-            EndPoint serverEPtemp = new IPEndPoint(IPAddress.Any, 0);
-            int primljeno = udpKlijent.ReceiveFrom(buffer, ref serverEPtemp);
+                EndPoint serverEPtemp = new IPEndPoint(IPAddress.Any, 0);
+                int primljeno = udpKlijent.ReceiveFrom(buffer, ref serverEPtemp);
+                byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
+                string novoStanje = Serijalizer.Deserialize<string>(tacniPodaci);
 
-            byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
-            string novoStanje = Serijalizer.Deserialize<string>(tacniPodaci);
-
-            Console.WriteLine("\n--- STANJE IGRE ---");
-            Console.WriteLine(novoStanje);
+                Console.WriteLine("\n--- NOVO STANJE ---");
+                Console.WriteLine(novoStanje);
+                Console.Write("Vaš potez: "); 
             }
 
-            if(tcpKlijent.Poll(1000, SelectMode.SelectRead))
+            if (tcpKlijent.Poll(100, SelectMode.SelectRead) && tcpKlijent.Available > 0)
             {
-                if(tcpKlijent.Available > 0)
+                if (Serijalizer.TryReceive<string>(tcpKlijent, out string? poruka))
                 {
-                    int bytesRead = tcpKlijent.Receive(buffer);
-                    byte[] primljeniPodaci = buffer.Take(bytesRead).ToArray();  
-                    string poruka = Serijalizer.Deserialize<string>(primljeniPodaci);
-                    Console.WriteLine("\n[Server TCP]: " + poruka);
+                    Console.WriteLine("\n[SERVER]: " + poruka);
                 }
             }
+
+            if (igrac.TipPrijave == TipIgraca.Igrac && Console.KeyAvailable)
+            {
+                string? unos = Console.ReadLine();
+                if (!string.IsNullOrEmpty(unos))
+                {
+                    byte[] data = Serijalizer.Serialize(unos);
+                    udpKlijent.SendTo(data, serverEP);
+                }
+            }
+
+            Thread.Sleep(10);
         }
+    }
+
+    static string GetLocalIPAddress()
+    {
+        var host = Dns.GetHostEntry(Dns.GetHostName());
+        foreach (var ip in host.AddressList)
+        {
+            if (ip.AddressFamily == AddressFamily.InterNetwork)
+            {
+                return ip.ToString();
+            }
+        }
+        return "127.0.0.1";
     }
 }

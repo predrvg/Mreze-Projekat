@@ -24,11 +24,22 @@ static class Serijalizer
         soket.Send(data);                           
     }
 
-    public static T Receive<T>(Socket soket)
+    public static bool TryReceive<T>(Socket soket, out T? obj)
     {
+        obj = default;
+
+        if (soket.Available < 4)
+            return false;
+
         byte[] lenBytes = new byte[4];
-        soket.Receive(lenBytes);
+        int readLen = soket.Receive(lenBytes, 0, 4, SocketFlags.None);
+        if (readLen < 4)
+            return false;
+
         int length = BitConverter.ToInt32(lenBytes, 0);
+
+        if (soket.Available < length)
+            return false;
 
         byte[] data = new byte[length];
         int total = 0;
@@ -38,7 +49,8 @@ static class Serijalizer
             total += received;
         }
 
-        return Deserialize<T>(data); 
+        obj = Deserialize<T>(data)!;
+        return true;
     }
 
 }

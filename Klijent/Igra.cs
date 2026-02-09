@@ -5,14 +5,15 @@ class Igra
     public int Trajanje {get; set;} = 0;
     public int DuzinaReci{get; set;} = 0;
     public int BrojDozvoljenihGresaka {get; set;} = 0;
-
-    public Igra(string imePrvogIgraca, string imeDrugogIgraca, int trajanje, int duzinaReci, int brojDozvoljenihGresaka)
+    public HashSet<char> PokusanaSlova { get; set; } = new HashSet<char>();
+    public Igra(string imePrvogIgraca, string imeDrugogIgraca, int trajanje, int duzinaReci, int brojDozvoljenihGresaka, HashSet<char> pokusanaSlova)
     {
         ImePrvogIgraca = imePrvogIgraca;
         ImeDrugogIgraca = imeDrugogIgraca;
         Trajanje = trajanje;
         DuzinaReci = duzinaReci;
         BrojDozvoljenihGresaka = brojDozvoljenihGresaka;
+        PokusanaSlova = pokusanaSlova;
     }
 
     public Igra()

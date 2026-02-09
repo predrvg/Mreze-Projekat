@@ -36,56 +36,56 @@ class Program
 
         try
         {
-            while (true)
+            bool sviPrijavljeni = false;
+            while (!sviPrijavljeni)
             {
                 List<Socket> checkRead = new List<Socket>();
-                List<Socket> checkError = new List<Socket>();
 
                 if (prijavljeniIgraci.Count < BROJ_IGRACA)
                 {
                     checkRead.Add(tcpServer);
                 }
-                checkError.Add(tcpServer);
 
-                Socket.Select(checkRead, null, checkError, 1000000);
-
-
-                if (checkError.Count > 0)
+                foreach (Socket s in soketiIgraca)
                 {
-                    Console.WriteLine("Greška na serverskoj utičnici!");
-                    break;
-                }
-                //nema dogadjaja server nastavlja sa radom
-                if (checkRead.Count == 0)
-                {
-                    continue;
+                    checkRead.Add(s);
                 }
 
-                Console.WriteLine($"Broj događaja: {checkRead.Count}");
+                if (checkRead.Count == 0) { Thread.Sleep(10); continue; }
+                Socket.Select(checkRead, null, null, 1000000);
 
-                foreach (Socket socket in checkRead)
+                foreach (Socket socket in checkRead.ToList())
                 {
-                    Socket client = tcpServer.Accept();
-                    client.Blocking = false;
-
-                    Console.WriteLine("Novi klijent se povezao.");
-
-                    Igrac noviIgrac = Serijalizer.Receive<Igrac>(client);
-
-                    prijavljeniIgraci.Add(noviIgrac);
-                    soketiIgraca.Add(client);
-
-                    Console.WriteLine($"Prijavljen igrač: {noviIgrac.Ime} ({noviIgrac.KorisnickoIme})");
-
-                    string poruka = "Prijava uspešna!";
-                    Serijalizer.Send(client, poruka);
-
-                    if (prijavljeniIgraci.Count == BROJ_IGRACA)
+                    if (socket == tcpServer)
                     {
-                        PokreniIgru();
+                        Socket client = tcpServer.Accept();
+                        client.Blocking = false;
+                        soketiIgraca.Add(client);
+                        Console.WriteLine("Novi klijent se povezao.");
+                    }
+                    else
+                    {
+                        if (Serijalizer.TryReceive<Igrac>(socket, out Igrac? noviIgrac))
+                        {
+                            if (noviIgrac != null)
+                            {
+                                prijavljeniIgraci.Add(noviIgrac);
+                                Console.WriteLine($"Prijavljen igrač: {noviIgrac.KorisnickoIme}");
+                                Serijalizer.Send(socket, "Prijava uspešna!");
+
+                                if (prijavljeniIgraci.Count == BROJ_IGRACA)
+                                {
+                                    sviPrijavljeni = true;
+                                   
+                                }
+                            }
+                        }
                     }
                 }
             }
+            Console.WriteLine("Svi igrači su tu. Pokrećem igru...");
+            Thread.Sleep(500);
+            PokreniIgru();
         }
         catch (SocketException ex)
         {
@@ -104,7 +104,7 @@ class Program
             udpServer.Bind(serverEP);
             udpServer.Blocking = false;
 
-            Console.WriteLine($"\nUDP tcpServer pokrenut na portu {UDP_PORT}");
+            Console.WriteLine($"\nUDP server pokrenut na portu {UDP_PORT}");
 
             Random rnd = new Random();
             string izabranaRec = reci[rnd.Next(reci.Count)];
@@ -136,9 +136,12 @@ class Program
             {
                 try
                 {
-                    Serijalizer.Send(soketiIgraca[i], pocetnoStanje);
-                    Serijalizer.Send(soketiIgraca[i], igra);
-                    Console.WriteLine($"\nStartni parametri poslati igraču {prijavljeniIgraci[i].KorisnickoIme}");
+                    if (soketiIgraca[i].Connected)
+                    {
+                        Serijalizer.Send(soketiIgraca[i], pocetnoStanje);
+                        Serijalizer.Send(soketiIgraca[i], igra);
+                        Console.WriteLine($"\nStartni parametri poslati igraču {prijavljeniIgraci[i].KorisnickoIme}");
+                    }
                 }
                 catch
                 {
@@ -187,19 +190,29 @@ class Program
 
                 if (checkRead.Count == 0)
                 {
-                    // nema poteza – igra se ne blokira
+                    Console.WriteLine("Cekam potez...");
                     continue;
                 }
 
                 EndPoint udpKlijentEP = new IPEndPoint(IPAddress.Any, 0);
                 int primljeno = udpServer.ReceiveFrom(buffer, ref udpKlijentEP);
+                
+                if (primljeno <= 0) continue;
 
+                Console.WriteLine($"[UDP] Primljen paket od {udpKlijentEP} ({primljeno} bytes)");
                 byte[] tacniPodaci = buffer.Take(primljeno).ToArray();
                 string pokusaj = Serijalizer.Deserialize<string>(tacniPodaci);
 
                 if (pokusaj.Length == 1)
                 {
                     Igrac igrac = NadjiIgracaPoEP(udpKlijentEP);
+
+                    if (igrac == null || string.IsNullOrEmpty(igrac.KorisnickoIme))
+                    {
+                        Console.WriteLine("Ignorišem paket: Nepoznat igrač.");
+                        continue; 
+                    }
+
                     char slovo = char.ToLower(pokusaj[0]);
 
                     if (igra.PokusanaSlova.Contains(slovo))
@@ -261,6 +274,7 @@ class Program
                     byte[] odgovor = Serijalizer.Serialize(stanjeZaIgraca);
                     EndPoint ep = new IPEndPoint(IPAddress.Parse(i.IpAdresa), i.Port);
                     udpServer.SendTo(odgovor, ep);
+                    Console.WriteLine($"[UDP] Stanje poslato igraču {i.KorisnickoIme} na port {i.Port}");
                 }
 
             }
@@ -282,6 +296,6 @@ class Program
                 }
             }
 
-            return new Igrac();
+            return null!;
         }
 }
