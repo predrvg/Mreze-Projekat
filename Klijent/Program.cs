@@ -4,8 +4,8 @@ using System.Net.Sockets;
 
 class Program
 {
-    const int TCP_PORT = 21005;
-    const int UDP_PORT = 21106;
+    const int TCP_PORT = 22222;
+    const int UDP_PORT = 33333;
     static void Main(string[] args)
     {
         Console.WriteLine("---PRIJAVA IGRACA---\n");
@@ -71,6 +71,27 @@ class Program
             Thread.Sleep(50);
         }
         Console.WriteLine($"\nServer: {potvrda}");
+
+        // ================= POSMATRAČ =================
+if (igrac.TipPrijave == TipIgraca.Posmatrac)
+{
+    Console.WriteLine("\n--- POSMATRAČ MOD ---");
+    Console.WriteLine("Pratim stanje igre...\n");
+
+    while (true)
+    {
+        if (tcpKlijent.Available > 0)
+        {
+            if (Serijalizer.TryReceive<string>(tcpKlijent, out string? stanjeIgre))
+            {
+                Console.WriteLine("[IGRA]: " + stanjeIgre);
+            }
+        }
+
+        Thread.Sleep(50);
+    }
+}
+
 
         Thread.Sleep(100);
         string? stanje;

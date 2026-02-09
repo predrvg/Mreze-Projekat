@@ -11,9 +11,11 @@ using System.Text;
 class Program
 {
 
-    const int TCP_PORT = 21005;
-    const int UDP_PORT = 21106;
+    const int TCP_PORT = 22222;
+    const int UDP_PORT = 33333;
     const int BROJ_IGRACA = 2;
+
+    const int MAX_BODOVI_PODRSKE = 5;
 
     static Socket udpServer = null!;
 
@@ -21,6 +23,15 @@ class Program
     static List<Socket> soketiIgraca = new List<Socket>();
 
     static List<string> reci = new List<string> { "avion", "harmonika", "radiolog", "programiranje" };
+
+    static Dictionary<string, int> bodoviIgraca = new();
+    static Dictionary<Socket, int> bodoviPosmatraca = new();
+    static List<Socket> soketiPosmatraca = new();
+
+    static List<Socket> soketiAktivnihIgraca = new List<Socket>();
+
+    static bool igraPokrenuta = false;
+
     static void Main(string[] args)
     {
         //TCP soket
@@ -36,16 +47,10 @@ class Program
 
         try
         {
-            bool sviPrijavljeni = false;
-            while (!sviPrijavljeni)
+            while (true)
             {
                 List<Socket> checkRead = new List<Socket>();
-
-                if (prijavljeniIgraci.Count < BROJ_IGRACA)
-                {
-                    checkRead.Add(tcpServer);
-                }
-
+                checkRead.Add(tcpServer);
                 foreach (Socket s in soketiIgraca)
                 {
                     checkRead.Add(s);
@@ -69,7 +74,7 @@ class Program
                         {
                             if (noviIgrac != null)
                             {
-                                prijavljeniIgraci.Add(noviIgrac);
+                               /* prijavljeniIgraci.Add(noviIgrac);
                                 Console.WriteLine($"Prijavljen igrač: {noviIgrac.KorisnickoIme}");
                                 Serijalizer.Send(socket, "Prijava uspešna!");
 
@@ -77,7 +82,33 @@ class Program
                                 {
                                     sviPrijavljeni = true;
                                    
-                                }
+                                }*/
+                                if (noviIgrac.TipPrijave == TipIgraca.Igrac)
+                                    {
+                                        prijavljeniIgraci.Add(noviIgrac);
+                                        bodoviIgraca[noviIgrac.KorisnickoIme] = 0;
+
+                                        soketiAktivnihIgraca.Add(socket);
+
+                                        Console.WriteLine($"Prijavljen IGRAČ: {noviIgrac.KorisnickoIme}");
+                                        Serijalizer.Send(socket, "Prijava uspešna (IGRAČ)!");
+
+                                        if (prijavljeniIgraci.Count == BROJ_IGRACA && !igraPokrenuta)
+                                        {
+                                            igraPokrenuta = true;
+                                            Console.WriteLine("Svi igrači su tu. Pokrećem igru...");
+                                            ThreadPool.QueueUserWorkItem(_ => PokreniIgru());
+                                        }
+                                    }
+                                    else // POSMATRAČ
+                                    {
+                                        soketiPosmatraca.Add(socket);
+                                        bodoviPosmatraca[socket] = MAX_BODOVI_PODRSKE;
+
+                                        Console.WriteLine("Prijavljen POSMATRAČ");
+                                        Serijalizer.Send(socket,
+                                            $"Prijava uspešna (POSMATRAČ). Preostali bodovi podrške: {MAX_BODOVI_PODRSKE}");
+                                    }
                             }
                         }
                     }
@@ -132,16 +163,20 @@ class Program
                 pokusanaSlova: pokusanaSlova
                 );
 
-            for (int i = 0; i < soketiIgraca.Count; i++)
+
+            for (int i = 0; i < soketiAktivnihIgraca.Count; i++)
             {
                 try
                 {
-                    if (soketiIgraca[i].Connected)
+                    if (soketiAktivnihIgraca[i].Connected)
                     {
-                        Serijalizer.Send(soketiIgraca[i], pocetnoStanje);
-                        Serijalizer.Send(soketiIgraca[i], igra);
+                        Serijalizer.Send(soketiAktivnihIgraca[i], pocetnoStanje);
+                        Serijalizer.Send(soketiAktivnihIgraca[i], igra);
+
                         Console.WriteLine($"\nStartni parametri poslati igraču {prijavljeniIgraci[i].KorisnickoIme}");
                     }
+                    PosaljiStanjePosmatracima(pocetnoStanje);
+                    Console.WriteLine("Početno stanje poslato posmatračima.");
                 }
                 catch
                 {
@@ -166,10 +201,10 @@ class Program
 
         tajnaRec = tajnaRec.ToLower();
 
-        Dictionary<string, int> greske = new Dictionary<string, int>();
+        Dictionary<Igrac, int> greske = new Dictionary<Igrac, int>();
 
         foreach (Igrac igrac in prijavljeniIgraci)
-            greske[igrac.KorisnickoIme] = brojGresaka;
+            greske[igrac] = brojGresaka;
 
         byte[] buffer = new byte[1024];
 
@@ -235,8 +270,7 @@ class Program
                         if (!pogodak)
                         {
                             igra.PokusanaSlova.Add(slovo);
-                            string korisnik = igrac.KorisnickoIme;
-                            greske[korisnik]--;
+                            greske[igrac]--;
                             Console.WriteLine($"{igrac.KorisnickoIme} je promašio slovo '{slovo}'");
                         }
                         else
@@ -261,22 +295,24 @@ class Program
                     else
                     {
                         Igrac igrac = NadjiIgracaPoEP(udpKlijentEP);
-
-                        string korisnik = igrac.KorisnickoIme;
-                        greske[korisnik]--;
+                        greske[igrac]--;
                     }
                 }
 
                 foreach (Igrac i in prijavljeniIgraci)
                 {
-                    string stanjeZaIgraca = new string(maskiranaRec) + $" | Preostale greške: {greske[i.KorisnickoIme]}";
+                    string stanjeZaIgraca = new string(maskiranaRec) + $" | Preostale greške: {greske[i]}";
 
                     byte[] odgovor = Serijalizer.Serialize(stanjeZaIgraca);
                     EndPoint ep = new IPEndPoint(IPAddress.Parse(i.IpAdresa), i.Port);
                     udpServer.SendTo(odgovor, ep);
                     Console.WriteLine($"[UDP] Stanje poslato igraču {i.KorisnickoIme} na port {i.Port}");
-                }
 
+                }
+                string stanjeZaPosmatraca = new string(maskiranaRec) +
+                $" | Greške: {greske[prijavljeniIgraci[0]]} / {greske[prijavljeniIgraci[1]]}";
+
+                PosaljiStanjePosmatracima(stanjeZaPosmatraca);
             }
         }
         catch (SocketException ex)
@@ -298,4 +334,16 @@ class Program
 
             return null!;
         }
+        
+        static void PosaljiStanjePosmatracima(string stanje)
+        {
+            foreach (var s in soketiPosmatraca)
+            {
+                if (s.Connected)
+                {
+                    Serijalizer.Send(s, stanje);
+                }
+            }
+        }
+
 }
