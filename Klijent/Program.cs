@@ -4,8 +4,8 @@ using System.Net.Sockets;
 
 class Program
 {
-    const int TCP_PORT = 22222;
-    const int UDP_PORT = 33333;
+    const int TCP_PORT = 33333;
+    const int UDP_PORT = 44444;
     static void Main(string[] args)
     {
         Console.WriteLine("---PRIJAVA IGRACA---\n");
@@ -28,7 +28,7 @@ class Program
             if (unos == "1")
             {
                 tipPrijave = TipIgraca.Igrac;
-                break; 
+                break;
             }
             else if (unos == "2")
             {
@@ -41,13 +41,13 @@ class Program
             }
         }
 
-        //TCP 
+        // TCP 
         Socket tcpKlijent = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
         tcpKlijent.Connect(IPAddress.Loopback, TCP_PORT);
         Console.WriteLine("\nPovezano sa serverom.");
 
-        //UDP 
+        // UDP 
         Socket udpKlijent = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         udpKlijent.Bind(new IPEndPoint(IPAddress.Any, 0));
         EndPoint serverEP = new IPEndPoint(IPAddress.Loopback, UDP_PORT);
@@ -61,7 +61,6 @@ class Program
             TipPrijave = tipPrijave
         };
 
-
         Serijalizer.Send(tcpKlijent, igrac);
         Console.WriteLine("\nPodaci poslati serveru.");
 
@@ -72,26 +71,30 @@ class Program
         }
         Console.WriteLine($"\nServer: {potvrda}");
 
-        // ================= POSMATRAČ =================
-if (igrac.TipPrijave == TipIgraca.Posmatrac)
-{
-    Console.WriteLine("\n--- POSMATRAČ MOD ---");
-    Console.WriteLine("Pratim stanje igre...\n");
-
-    while (true)
-    {
-        if (tcpKlijent.Available > 0)
+        if (igrac.TipPrijave == TipIgraca.Posmatrac)
         {
-            if (Serijalizer.TryReceive<string>(tcpKlijent, out string? stanjeIgre))
+            Console.WriteLine("\n--- POSMATRANJE IGRE ---");
+
+            while (true)
             {
-                Console.WriteLine("[IGRA]: " + stanjeIgre);
+                if (tcpKlijent.Available > 0)
+                {
+                    if (Serijalizer.TryReceive<string>(tcpKlijent, out string? stanjeIgre))
+                    {
+                        Console.WriteLine("[IGRA]: " + stanjeIgre);
+
+                        if (stanjeIgre != null && stanjeIgre.Contains("===== KRAJ IGRE ====="))
+                        {
+                            Console.WriteLine("\nIgra je završena. Pritisni ENTER za izlaz.");
+                            Console.ReadLine();
+                            return;
+                        }
+                    }
+                }
+
+                Thread.Sleep(50);
             }
         }
-
-        Thread.Sleep(50);
-    }
-}
-
 
         Thread.Sleep(100);
         string? stanje;
@@ -102,12 +105,12 @@ if (igrac.TipPrijave == TipIgraca.Posmatrac)
         Console.WriteLine("Početno stanje reči: " + stanje);
 
         Thread.Sleep(100);
-        Igra igra; 
+        Igra igra;
         while (true)
         {
             if (Serijalizer.TryReceive<Igra>(tcpKlijent, out Igra? temp))
             {
-                if (temp!=null)
+                if (temp != null)
                 {
                     igra = temp;
                     break;
@@ -131,14 +134,21 @@ if (igrac.TipPrijave == TipIgraca.Posmatrac)
 
                 Console.WriteLine("\n--- NOVO STANJE ---");
                 Console.WriteLine(novoStanje);
-                Console.Write("Vaš potez: "); 
+                Console.Write("Vaš potez: ");
             }
 
-            if (tcpKlijent.Poll(100, SelectMode.SelectRead) && tcpKlijent.Available > 0)
+            if (tcpKlijent.Available > 0)
             {
-                if (Serijalizer.TryReceive<string>(tcpKlijent, out string? poruka))
+                while (tcpKlijent.Available > 0)
                 {
-                    Console.WriteLine("\n[SERVER]: " + poruka);
+                    if (Serijalizer.TryReceive<string>(tcpKlijent, out string? poruka))
+                    {
+                        Console.WriteLine(poruka);
+                        Console.WriteLine("\nIgra je završena. Pritisni ENTER za izlaz.");
+                        Console.ReadLine();
+                        return;
+                    }
+                    else break;
                 }
             }
 
